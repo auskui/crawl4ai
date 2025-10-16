@@ -1,0 +1,80 @@
+version: '3.8'
+
+# Development environment with code hot-reload and volume mapping
+services:
+  crawl4ai-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_TYPE: ${INSTALL_TYPE:-default}
+        ENABLE_GPU: ${ENABLE_GPU:-false}
+    
+    container_name: crawl4ai-dev
+    
+    ports:
+      - "11235:11235"  # Main API port
+      - "6379:6379"    # Redis port (for debugging)
+    
+    # Volume mappings for hot-reload and file sharing
+    volumes:
+      # Code volumes (hot-reload support)
+      - ./deploy/docker:/app:rw              # Application code (read-write)
+      - ./crawl4ai:/app/crawl4ai:ro          # Library code (read-only)
+      
+      # Output volumes (share generated files with host)
+      - ./output/screenshots:/app/screenshots:rw
+      - ./output/pdfs:/app/pdfs:rw
+      - ./output/logs:/app/logs:rw
+      
+      # Performance optimization
+      - /dev/shm:/dev/shm
+    
+    # Load API keys from file (this will set all environment variables)
+    env_file:
+      - .llm.env
+    
+    # Additional environment variables
+    environment:
+      - PYTHON_ENV=development               # Trigger dev config
+      # NOTE: 下面这些环境变量会从宿主机读取并覆盖 .llm.env 文件中的配置
+      # 如果宿主机没有这些环境变量，会导致容器内的值为空
+      # 因此注释掉，让 env_file 直接加载 .llm.env 中的配置
+      # - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # - GROQ_API_KEY=${GROQ_API_KEY:-}
+      # - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
+      # - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      # - GEMINI_API_TOKEN=${GEMINI_API_TOKEN:-}
+      # - LLM_PROVIDER=${LLM_PROVIDER:-}
+    
+    # Override command to use uvicorn with hot-reload
+    # Note: We use supervisord only in production, uvicorn directly in dev
+    command: >
+      sh -c "
+        redis-server --daemonize yes --bind 0.0.0.0 &&
+        uvicorn server:app --host 0.0.0.0 --port 11235 --reload --reload-dir /app
+      "
+    
+    # Resource limits (more relaxed than production)
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 512M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11235/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Run as root in dev for easier debugging
+    # user: "appuser"  # Commented out for development
+    
+    restart: unless-stopped
+

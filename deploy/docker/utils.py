@@ -21,7 +21,13 @@ class FilterType(str, Enum):
 
 def load_config() -> Dict:
     """Load and return application configuration with environment variable overrides."""
-    config_path = Path(__file__).parent / "config.yml"
+    # Select config file based on environment
+    env = os.getenv("PYTHON_ENV", "production")
+    config_filename = "config.dev.yml" if env == "development" else "config.yml"
+    config_path = Path(__file__).parent / config_filename
+    
+    logging.info(f"Loading configuration from: {config_filename} (PYTHON_ENV={env})")
+    
     with open(config_path, "r") as config_file:
         config = yaml.safe_load(config_file)
     
@@ -89,6 +95,27 @@ def get_llm_api_key(config: Dict, provider: Optional[str] = None) -> str:
     # Check if direct API key is configured
     if "api_key" in config["llm"]:
         return config["llm"]["api_key"]
+    
+    # Extract provider name from the provider string (e.g., "deepseek" from "deepseek/deepseek-chat")
+    provider_name = provider.split("/")[0].upper() if "/" in provider else provider.upper()
+    
+    # Mapping of provider names to their environment variable names
+    provider_env_map = {
+        "OPENAI": "OPENAI_API_KEY",
+        "DEEPSEEK": "DEEPSEEK_API_KEY",
+        "ANTHROPIC": "ANTHROPIC_API_KEY",
+        "GROQ": "GROQ_API_KEY",
+        "TOGETHER": "TOGETHER_API_KEY",
+        "MISTRAL": "MISTRAL_API_KEY",
+        "GEMINI": "GEMINI_API_TOKEN",
+    }
+    
+    # Try to get the environment variable for this specific provider
+    env_var_name = provider_env_map.get(provider_name)
+    if env_var_name:
+        api_key = os.environ.get(env_var_name, "")
+        if api_key:
+            return api_key
     
     # Fall back to the configured api_key_env if no match
     return os.environ.get(config["llm"].get("api_key_env", ""), "")

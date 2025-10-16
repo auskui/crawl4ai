@@ -1,0 +1,47 @@
+✅ Crawl4AI 开发环境配置完成
+
+配置日期: 2025-10-16
+状态: 就绪
+
+已创建的文件:
+- docker-compose.dev.yml       (Docker 开发环境配置)
+- deploy/docker/config.dev.yml (开发环境参数)
+- QUICKSTART_DEV.md            (详细启动指南)
+- START_DEV.md                 (快速启动说明)
+- DEV_ENV_SUMMARY.md           (配置总结)
+- test_dev_env.sh              (环境测试脚本)
+
+已修改的文件:
+- deploy/docker/utils.py       (支持环境检测)
+
+已创建的目录:
+- output/screenshots/
+- output/pdfs/
+- output/logs/
+
+快速启动:
+  docker-compose -f docker-compose.dev.yml up
+
+验证服务:
+  curl http://localhost:11235/health
+  curl http://localhost:11235/mcp/schema
+
+Cursor MCP 配置:
+  ~/.cursor/mcp.json 应包含:
+  {
+    "mcpServers": {
+      "crawl4ai": {
+        "url": "http://localhost:11235/mcp/sse"
+      }
+    }
+  }
+
+功能特性:
+✅ 代码热重载（修改即生效）
+✅ 目录挂载（文件共享）
+✅ DEBUG 日志（详细输出）
+✅ 端口暴露（Redis 6379）
+✅ MCP 完全支持（7个工具）
+
+开始使用: cat START_DEV.md
+
