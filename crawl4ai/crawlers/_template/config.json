@@ -1,0 +1,38 @@
+{
+  "name": "template_crawler",
+  "version": "1.0.0",
+  "description": "模板爬虫配置文件",
+  
+  "selectors": {
+    "title": "h1.title",
+    "content": "div.content",
+    "links": "a[href]"
+  },
+  
+  "browser": {
+    "headless": true,
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  },
+  
+  "crawler": {
+    "delay": 1,
+    "timeout": 30,
+    "retry_times": 3,
+    "rate_limit": "10/minute"
+  },
+  
+  "extraction": {
+    "wait_for_selector": null,
+    "remove_selectors": [
+      "script",
+      "style",
+      "nav",
+      "footer"
+    ]
+  }
+}
+

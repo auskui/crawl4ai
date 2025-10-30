@@ -1,0 +1,385 @@
+# Crawl4AI 项目 Cursor 规则
+
+本文件定义了 Crawl4AI 项目的开发规范和 AI 助手行为准则。
+
+## 🎯 项目概述
+
+Crawl4AI 是一个强大的异步网页爬虫框架，支持：
+- 异步爬取
+- 浏览器自动化（Playwright）
+- 多种数据提取策略
+- Docker 部署
+- MCP (Model Context Protocol) 支持
+
+## ⚡ 数据获取优先级规则（重要！）
+
+**当用户请求获取数据或执行操作时，必须按以下优先级顺序考虑实现方案：**
+
+### 1. 优先级 1：MCP 工具 🥇
+- **首先检查**是否有可用的 MCP 工具可以直接完成任务
+- **MCP 工具列表**：
+  - `az-deployer`: 部署、环境锁管理
+  - `upload-tool`: 文件上传到服务器
+  - `stock-query`: 库存查询
+  - `sivir-query`: Sivir 业务数据查询
+  - `openmemory`: 记忆管理
+- **优势**：最快、最稳定、原生支持
+
+### 2. 优先级 2：HTTP API 🥈
+- **其次考虑**是否有官方 API 或公开的 HTTP 接口
+- **检查内容**：
+  - 网站是否提供官方 API（如 Twitter API, GitHub API）
+  - 是否有公开的 REST/GraphQL 接口
+  - 是否可以通过浏览器开发工具找到接口
+- **优势**：稳定、快速、数据结构化
+- **实现方式**：使用 `httpx`, `aiohttp` 等库
+
+### 3. 优先级 3：轻量级爬虫 🥉
+- **如果没有 API**，但数据较简单，使用轻量级爬取
+- **适用场景**：
+  - 静态页面
+  - 简单的数据提取
+  - 不需要复杂交互
+- **实现方式**：使用 `httpx` + `BeautifulSoup`
+
+### 4. 优先级 4：完整爬虫框架 📦
+- **最后选择**：只有在必须使用浏览器自动化时才创建完整爬虫
+- **适用场景**：
+  - 需要 JavaScript 渲染
+  - 需要登录认证
+  - 需要复杂的页面交互
+  - 有严格的反爬虫机制
+- **实现方式**：使用 Crawl4AI 框架，按本文档规范创建爬虫
+
+### 决策流程图
+
+```
+用户请求数据/操作
+    ↓
+是否有 MCP 工具？ ──→ YES → 使用 MCP 工具 ✅
+    ↓ NO
+是否有 HTTP API？ ──→ YES → 调用 API ✅
+    ↓ NO
+是静态页面？ ──→ YES → 轻量级爬虫 ✅
+    ↓ NO
+需要浏览器？ ──→ YES → 创建完整爬虫 ✅
+```
+
+### 实施指南
+
+#### 场景 1：用户说"查询库存数据"
+```
+❌ 错误：直接创建爬虫
+✅ 正确：使用 MCP stock-query 工具
+```
+
+#### 场景 2：用户说"获取 GitHub 仓库信息"
+```
+❌ 错误：创建爬虫爬取 GitHub 页面
+✅ 正确：使用 GitHub API (https://api.github.com)
+```
+
+#### 场景 3：用户说"提取静态博客文章"
+```
+❌ 错误：使用 Playwright 启动浏览器
+✅ 正确：使用 httpx + BeautifulSoup
+```
+
+#### 场景 4：用户说"爬取需要登录的动态页面"
+```
+✅ 正确：这种情况才使用完整的 Crawl4AI 爬虫框架
+```
+
+### AI 助手行为规范
+
+在处理数据获取请求时，AI 助手必须：
+
+1. **先询问或探索**：
+   - "这个网站是否有官方 API？"
+   - "让我检查一下是否可以直接调用接口..."
+   
+2. **明确说明选择**：
+   - "我发现有现成的 API，我们可以直接调用"
+   - "这个页面是静态的，不需要完整的爬虫框架"
+   - "这需要 JavaScript 渲染，我们需要创建完整爬虫"
+
+3. **优先使用简单方案**：
+   - 不要过度设计
+   - 能用 MCP 就不用 API
+   - 能用 API 就不用爬虫
+   - 能用简单爬虫就不用复杂框架
+
+### 常见错误示例
+
+❌ **错误1**：用户说"查一下测试环境的库存"，立即创建爬虫
+→ ✅ 应该使用 `mcp_stock-query_query_stock`
+
+❌ **错误2**：用户说"获取某个 REST API 的数据"，创建爬虫
+→ ✅ 应该直接使用 `httpx.get()`
+
+❌ **错误3**：用户说"抓取简单的静态页面"，启动 Playwright
+→ ✅ 应该使用 `httpx` + `BeautifulSoup`
+
+---
+
+## 📁 爬虫脚本组织规范
+
+### 核心原则
+1. **所有网站特定的爬虫必须放在 `crawl4ai/crawlers/` 目录**
+2. **每个网站一个独立的子文件夹**
+3. **使用标准模板 `_template` 创建新爬虫**
+4. **遵循统一的命名和代码规范**
+
+### 目录结构
+```
+crawl4ai/crawlers/
+├── README.md                    # 爬虫目录说明
+├── _template/                   # 新爬虫模板（必须保留）
+│   ├── __init__.py
+│   ├── crawler.py
+│   ├── config.json
+│   ├── script.js
+│   └── README.md
+├── [website_name]/              # 具体网站爬虫
+│   ├── __init__.py             # 必需：导出爬虫类
+│   ├── crawler.py              # 必需：主逻辑
+│   ├── README.md               # 必需：文档
+│   ├── config.json             # 可选：配置
+│   ├── script.js               # 可选：JS脚本
+│   └── utils.py                # 可选：辅助函数
+```
+
+### 命名规范
+
+#### 文件夹命名
+- 小写字母
+- 下划线分隔
+- 体现网站或功能
+
+✅ 正确：`amazon_product`, `google_search`, `twitter_posts`
+❌ 错误：`AmazonProduct`, `amazon-product`, `amazon`, `ap`
+
+#### 类命名
+- PascalCase
+- 以 `Crawler` 结尾
+
+✅ 正确：`AmazonProductCrawler`, `GoogleSearchCrawler`
+❌ 错误：`amazon_product`, `AmazonProduct`, `APCrawler`
+
+## 🛠️ 创建新爬虫指引
+
+### 当用户说以下内容时：
+
+**"创建爬虫"** / **"新建爬虫"** / **"添加爬虫"**
+→ 执行以下步骤：
+
+1. **询问网站名称和功能**
+   - "你想爬取哪个网站？"
+   - "主要爬取什么数据？"
+
+2. **生成文件夹名**
+   - 使用小写+下划线
+   - 示例：Twitter 帖子 → `twitter_posts`
+
+3. **复制模板**
+   ```bash
+   cp -r crawl4ai/crawlers/_template crawl4ai/crawlers/[name]
+   ```
+
+4. **修改文件**
+   - 更新类名
+   - 填写 `__meta__` 信息
+   - 实现 `run` 方法
+   - 更新 `__init__.py`
+   - 编写 `README.md`
+
+5. **提供使用示例**
+
+### 必需实现
+
+#### 1. 继承 BaseCrawler
+```python
+from crawl4ai.hub import BaseCrawler
+
+class YourCrawler(BaseCrawler):
+    pass
+```
+
+#### 2. 定义元数据
+```python
+__meta__ = {
+    "version": "1.0.0",
+    "tested_on": ["example.com"],
+    "rate_limit": "10 RPM",
+    "description": "功能描述"
+}
+```
+
+#### 3. 实现 run 方法
+```python
+async def run(self, url: str, **kwargs) -> str:
+    """
+    Args:
+        url: 目标URL
+        **kwargs: 扩展参数
+    
+    Returns:
+        str: JSON格式的结果字符串
+    """
+    try:
+        # 爬取逻辑
+        return json.dumps({"success": True, "data": data})
+    except Exception as e:
+        self.logger.error(f"错误: {e}", exc_info=True)
+        return json.dumps({"success": False, "error": str(e)})
+```
+
+## 📋 代码规范
+
+### 错误处理
+- 必须捕获所有异常
+- 返回结构化的错误信息
+- 使用 `self.logger` 记录日志
+
+### 日志级别
+- `info`: 正常流程
+- `debug`: 调试信息
+- `warning`: 警告（不影响执行）
+- `error`: 错误（影响执行）
+
+### 返回格式
+统一使用 JSON 字符串：
+```python
+# 成功
+{"success": True, "data": {...}, "metadata": {...}}
+
+# 失败
+{"success": False, "error": "错误信息", "metadata": {...}}
+```
+
+## ✅ 提交前检查清单
+
+在提交代码前，AI 助手应确保：
+
+- [ ] 文件夹命名符合规范
+- [ ] 类名符合规范
+- [ ] 继承自 `BaseCrawler`
+- [ ] 包含完整的 `__meta__`
+- [ ] 实现了 `run` 方法
+- [ ] `__init__.py` 正确导出
+- [ ] 添加了错误处理
+- [ ] 添加了日志记录
+- [ ] 编写了 `README.md`
+- [ ] 提供了使用示例
+
+## 📚 参考文档
+
+- **模板**: `crawl4ai/crawlers/_template/`
+- **爬虫目录说明**: `crawl4ai/crawlers/README.md`
+- **详细开发指南**: `docs/CRAWLER_DEVELOPMENT_GUIDE.md`
+- **示例爬虫**: 
+  - `crawl4ai/crawlers/amazon_product/`
+  - `crawl4ai/crawlers/google_search/`
+
+## 🤖 AI 助手行为准则
+
+### 自动执行任务
+
+当用户请求创建或修改爬虫时：
+1. **不要只给建议**，直接执行创建/修改操作
+2. **使用模板**作为起点
+3. **完整实现**所有必需文件
+4. **自动生成**文档和示例
+5. **提供测试**代码
+
+### 响应用户意图
+
+| 用户说 | AI 应该做 |
+|--------|----------|
+| "创建一个爬取 X 网站的爬虫" | 1. 创建文件夹<br>2. 生成所有必需文件<br>3. 实现基本逻辑<br>4. 提供使用示例 |
+| "添加 Y 功能到爬虫" | 1. 修改 crawler.py<br>2. 更新文档<br>3. 添加示例 |
+| "优化 Z 爬虫" | 1. 分析现有代码<br>2. 提出改进方案<br>3. 实施改进 |
+
+### 代码质量标准
+
+生成的代码必须：
+- ✅ 完整可运行
+- ✅ 包含类型注解
+- ✅ 包含文档字符串
+- ✅ 包含错误处理
+- ✅ 包含日志记录
+- ✅ 遵循 PEP 8
+
+### 文档质量标准
+
+生成的文档必须：
+- ✅ 清晰的功能描述
+- ✅ 完整的参数说明
+- ✅ 可运行的示例代码
+- ✅ 常见问题解答
+- ✅ 测试状态说明
+
+## 🔍 故障排查
+
+### 导入问题
+```python
+# 确保 __init__.py 正确
+from .crawler import YourCrawler
+__all__ = ["YourCrawler"]
+```
+
+### 调试技巧
+```python
+# 启用详细模式
+BrowserConfig(verbose=True, headless=False)
+
+# 保存 HTML 快照
+Path("debug.html").write_text(result.html)
+```
+
+## 📝 项目特定规范
+
+### Python 版本
+- 最低支持: Python 3.8+
+- 推荐使用: Python 3.10+
+
+### 异步编程
+- 所有 I/O 操作使用 `async/await`
+- 使用 `AsyncWebCrawler` 而非同步版本
+
+### 依赖管理
+- 核心依赖在 `requirements.txt`
+- 可选依赖在爬虫的 `__meta__["dependencies"]`
+
+### 测试
+- 单元测试放在 `tests/crawlers/`
+- 使用 `pytest` 和 `pytest-asyncio`
+
+---
+
+## 📖 快速参考
+
+**创建新爬虫完整流程：**
+
+```bash
+# 1. 复制模板
+cp -r crawl4ai/crawlers/_template crawl4ai/crawlers/new_site
+
+# 2. 修改文件（AI 自动完成）
+# - __init__.py: 更新类名
+# - crawler.py: 实现逻辑
+# - README.md: 编写文档
+
+# 3. 测试
+python -m pytest tests/crawlers/test_new_site.py
+
+# 4. 使用
+from crawl4ai.crawlers.new_site import NewSiteCrawler
+crawler = NewSiteCrawler()
+result = await crawler.run(url="https://example.com")
+```
+
+---
+
+**注意**：遵循这些规则可确保代码质量和项目一致性！
+

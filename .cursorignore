@@ -1,0 +1,51 @@
+# Cursor 忽略文件
+# 这些文件和目录不会被 Cursor AI 索引
+
+# 虚拟环境
+venv/
+.venv/
+env/
+ENV/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 构建产物
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 日志
+*.log
+logs/
+
+# 依赖
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+*~
+
+# 输出
+output/
+
+# 大文件
+*.pdf
+*.zip
+*.tar.gz
+
+# 锁文件（保留配置即可）
+uv.lock
+poetry.lock
+

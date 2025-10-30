@@ -1,0 +1,265 @@
+# Crawl4AI 爬虫开发规则
+
+当用户请求创建新的爬虫或修改现有爬虫时，请遵循以下规则：
+
+## ⚡ 数据获取优先级（最重要！）
+
+**在创建爬虫之前，必须先考虑其他更优方案：**
+
+### 决策顺序（从高到低）
+
+1. **MCP 工具** → 优先使用现有 MCP 工具（如 stock-query, sivir-query）
+2. **HTTP API** → 检查是否有官方 API 或公开接口
+3. **轻量爬虫** → 静态页面用 httpx + BeautifulSoup
+4. **完整爬虫** → 仅在必须使用浏览器时才创建
+
+### 何时才创建完整爬虫？
+
+✅ **应该创建**：
+- 需要 JavaScript 渲染
+- 需要登录认证
+- 需要复杂页面交互
+- 有严格反爬虫机制
+
+❌ **不应该创建**：
+- 有现成的 MCP 工具
+- 有官方 API 可用
+- 是简单的静态页面
+- 只是简单的 HTTP 请求
+
+---
+
+## 🎯 核心原则
+
+1. **所有爬虫必须放在 `crawl4ai/crawlers/` 目录下**
+2. **每个网站一个独立的文件夹**
+3. **使用模板快速开始**
+4. **遵循统一的代码规范**
+5. **爬虫是最后的选择**（参考上述优先级）
+
+## 📁 目录结构规范
+
+```
+crawl4ai/crawlers/
+├── [website_name]/           # 网站名称（小写+下划线）
+│   ├── __init__.py          # 必需：导出爬虫类
+│   ├── crawler.py           # 必需：主爬虫逻辑
+│   ├── README.md            # 必需：使用文档
+│   ├── config.json          # 可选：配置文件
+│   ├── script.js            # 可选：JS脚本
+│   └── utils.py             # 可选：辅助函数
+```
+
+## 🚀 创建新爬虫步骤
+
+### 1. 使用模板创建
+
+```bash
+cd crawl4ai/crawlers
+cp -r _template [new_crawler_name]
+cd [new_crawler_name]
+```
+
+### 2. 修改文件
+
+#### `__init__.py`
+```python
+from .crawler import YourCrawlerName
+
+__all__ = ["YourCrawlerName"]
+```
+
+#### `crawler.py`
+```python
+from crawl4ai.hub import BaseCrawler
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
+import json
+
+class YourCrawlerName(BaseCrawler):
+    __meta__ = {
+        "version": "1.0.0",
+        "tested_on": ["yoursite.com"],
+        "rate_limit": "10 RPM",
+        "description": "功能描述"
+    }
+    
+    async def run(self, url: str, **kwargs) -> str:
+        # 实现爬取逻辑
+        pass
+```
+
+#### `README.md`
+参考模板中的 README.md，填写完整的使用文档。
+
+## 📝 命名规范
+
+### 文件夹命名
+✅ 正确：
+- `amazon_product`
+- `google_search`
+- `twitter_posts`
+- `linkedin_profiles`
+
+❌ 错误：
+- `AmazonProduct` (不要用大写)
+- `amazon-product` (不要用连字符)
+- `amazon` (不够具体)
+- `ap` (不要缩写)
+
+### 类命名
+✅ 正确：
+- `AmazonProductCrawler`
+- `GoogleSearchCrawler`
+- `TwitterPostsCrawler`
+
+❌ 错误：
+- `amazon_product` (不要用小写)
+- `AmazonProduct` (缺少 Crawler 后缀)
+- `APCrawler` (不要缩写)
+
+## ⚙️ 必需实现
+
+### 1. 继承 BaseCrawler
+```python
+from crawl4ai.hub import BaseCrawler
+
+class YourCrawler(BaseCrawler):
+    pass
+```
+
+### 2. 定义 __meta__
+```python
+__meta__ = {
+    "version": "1.0.0",           # 必需
+    "tested_on": ["site.com"],    # 必需
+    "rate_limit": "10 RPM",       # 必需
+    "description": "功能描述"      # 必需
+}
+```
+
+### 3. 实现 run 方法
+```python
+async def run(self, url: str, **kwargs) -> str:
+    """
+    Args:
+        url: 目标URL
+        **kwargs: 扩展参数
+    
+    Returns:
+        str: JSON格式的结果字符串
+    """
+    try:
+        # 爬取逻辑
+        return json.dumps({"success": True, "data": data})
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)})
+```
+
+## 🔧 最佳实践
+
+### 1. 错误处理
+```python
+try:
+    result = await crawler.arun(url=url)
+    if not result.success:
+        return json.dumps({"error": result.error})
+except Exception as e:
+    self.logger.error(f"爬取失败: {e}", exc_info=True)
+    return json.dumps({"error": str(e)})
+```
+
+### 2. 日志记录
+```python
+self.logger.info(f"开始爬取: {url}")
+self.logger.debug(f"配置: {kwargs}")
+self.logger.warning(f"未提取到数据")
+self.logger.error(f"错误: {e}", exc_info=True)
+```
+
+### 3. 配置管理
+```python
+# 使用 config.json
+config_file = Path(__file__).parent / "config.json"
+with open(config_file) as f:
+    self.config = json.load(f)
+```
+
+### 4. JavaScript 支持
+```python
+# 加载 script.js
+js_file = Path(__file__).parent / "script.js"
+self.js_script = js_file.read_text()
+
+# 使用
+config = CrawlerRunConfig(js_code=self.js_script)
+```
+
+## ✅ 提交前检查清单
+
+- [ ] 文件夹命名符合规范（小写+下划线）
+- [ ] 类名符合规范（PascalCase + Crawler后缀）
+- [ ] 继承自 `BaseCrawler`
+- [ ] 包含完整的 `__meta__`
+- [ ] 实现了 `run` 方法
+- [ ] `__init__.py` 正确导出
+- [ ] 添加了错误处理
+- [ ] 添加了日志记录
+- [ ] 编写了 `README.md`
+- [ ] 测试通过
+
+## 📚 参考文档
+
+- **模板文件**: `crawl4ai/crawlers/_template/`
+- **爬虫目录说明**: `crawl4ai/crawlers/README.md`
+- **详细开发指南**: `docs/CRAWLER_DEVELOPMENT_GUIDE.md`
+- **示例爬虫**: 
+  - `crawl4ai/crawlers/amazon_product/`
+  - `crawl4ai/crawlers/google_search/`
+
+## 🤖 AI 助手指引
+
+当用户说：
+- "创建一个爬虫" / "新建爬虫"
+  → 引导使用 `_template` 模板
+  
+- "爬取 [网站名]"
+  → 检查是否已有对应爬虫，没有则创建新的
+  
+- "添加新网站爬虫"
+  → 按照规范创建新的爬虫文件夹
+
+创建时自动：
+1. 从模板复制文件
+2. 根据网站名修改类名
+3. 更新 `__meta__` 信息
+4. 创建基本的 `README.md`
+5. 提醒用户完善文档和测试
+
+## 🔍 故障排查
+
+### 问题1: 导入失败
+```python
+# 检查 __init__.py 是否正确导出
+from .crawler import YourCrawler
+__all__ = ["YourCrawler"]
+```
+
+### 问题2: 爬取失败
+```python
+# 启用详细日志
+browser_config = BrowserConfig(verbose=True)
+# 使用非无头模式调试
+browser_config = BrowserConfig(headless=False)
+```
+
+### 问题3: 数据提取失败
+```python
+# 保存HTML快照
+Path("debug.html").write_text(result.html)
+# 检查选择器
+```
+
+---
+
+**重要**: 始终参考 `_template` 和现有爬虫示例，保持代码风格一致！
+
